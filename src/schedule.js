@@ -3,8 +3,9 @@ import { getReminderEvents } from './supabase.js';
 import { TIME_ZONE } from './reminder-windows.js';
 import { EmbedBuilder } from 'discord.js';
 import cron from 'node-cron';
+import { startHackathonSchedule } from './hackathon-reminders.js';
 
-function buildEventEmbed(event) {
+export function buildEventEmbed(event) {
     const unix = Math.floor(new Date(event.start_time).getTime() / 1000);
     const endUnix = Math.floor(new Date(event.end_time).getTime() / 1000);
     return new EmbedBuilder()
@@ -44,4 +45,5 @@ export default function startSchedule(Client) {
     const options = { timezone: TIME_ZONE, noOverlap: true };
     cron.schedule('0 9 * * *', () => sendReminder('daily'), options);
     cron.schedule('0 9 * * 0', () => sendReminder('weekly'), options);
+    startHackathonSchedule();
 };

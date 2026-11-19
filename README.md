@@ -109,3 +109,21 @@ The bot process must stay running and have network access to Discord's gateway.
 ## License
 
 Add the project's license here when one is selected.
+
+## Hackathon reminders
+
+Normal digests now include only published chapter events (`hackathon_id IS NULL`). Hackathon sessions use a separate worker every minute, with no startup send, and a persistent delivery ledger in the same Supabase database.
+
+Before enabling, apply the website migration `database/changes/add-hackathon-reminders.sql`, configure each hackathon's Discord channel and role, and set these server environment variables:
+
+- `SUPABASE_SERVICE_ROLE_KEY`: server-only Supabase service key, required for protected claim/completion RPCs. Never expose this to browser code.
+- `HACKATHON_REMINDERS_ENABLED=true`: enable the worker only after migration and destination setup. Omitted/false keeps it disabled.
+- Existing `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `DISCORD_TOKEN`, and `CHANNEL_ID` remain in use.
+
+The worker claims one published session at a time within 60 minutes of its start. Late reminders are allowed only before start time. Messages contain the actual start time and mention only the hackathon role. No default-channel fallback is used; missing configuration is logged.
+
+A unique event/reminder identity prevents automatic resend after delivery or rescheduling. Unattempted deliveries follow edits. Definite Discord 4xx rejections retry after five minutes. Timeouts, network/5xx failures, expired 30-second claims, and uncertain completion writes become `unknown` for operator review. Edits to an attempted delivery also require review. Do not automatically reset unknown rows: Discord may have accepted the message. HTTP POSTs have a 15-second timeout and no automatic retry.
+
+Inspect the Supabase `event_reminder_deliveries` table and bot logs for failures. The website's `docs/hackathon-reminders.md` documents migration order and manual repair. Stop the old bot before rollout; retain `events.reminded` until all deployed consumers no longer use it.
+
+`npm test` includes isolated hackathon scheduling, role-mention, provider failure, and completion-uncertainty tests. No real Discord messages or database writes are performed by these unit tests. Database concurrency and RLS tests live with the website migration (`npm run test:reminders-db`).

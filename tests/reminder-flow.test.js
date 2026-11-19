@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 // No credentials, database connection, timers, or Discord connection in this suite.
 mock.module('dotenv/config', { namedExports: {} });
+process.env.HACKATHON_REMINDERS_ENABLED = 'false';
 const jobs = [];
 let rows = [];
 let queryError = null;
@@ -17,12 +18,14 @@ mock.module('@supabase/supabase-js', { namedExports: {
             queries.push(query);
             return {
                 select(columns) { query.columns = columns; return this; },
+                eq(field, value) { query[field] = value; return this; },
+                is(field, value) { query[field] = value; return this; },
                 gte(field, value) { query.start = value; return this; },
                 lt(field, value) { query.end = value; return this; },
                 async order(field, options) {
                     query.order = { field, ...options };
                     return { error: queryError, data: rows
-                        .filter(row => row.start_time >= query.start && row.start_time < query.end)
+                        .filter(row => row.start_time >= query.start && row.start_time < query.end && row.status === query.status && row.hackathon_id === query.hackathon_id)
                         .sort((a, b) => a.start_time.localeCompare(b.start_time)) };
                 },
             };
@@ -42,7 +45,7 @@ const client = { channels: { async fetch() {
 } } };
 function event(title, start_time) {
     return { title, start_time, end_time: new Date(Date.parse(start_time) + 3600000).toISOString(),
-        event_type: 'Workshop', description: 'Local test event', location: 'UCF', reminded: true };
+        status: 'published', hackathon_id: null, event_type: 'Workshop', description: 'Local test event', location: 'UCF', reminded: true };
 }
 startSchedule(client);
 
@@ -63,7 +66,10 @@ test('local reminder flow with fake database and Discord', async (t) => {
     await t.test('daily selects the whole Eastern day, orders events and mentions role once', async () => {
         reset();
         rows = [event('Evening', '2026-11-23T04:59:59.000Z'), event('Tomorrow', '2026-11-23T05:00:00.000Z'),
-            event('Midnight', '2026-11-22T05:00:00.000Z'), event('Yesterday', '2026-11-22T04:59:59.000Z')];
+            event('Midnight', '2026-11-22T05:00:00.000Z'), event('Yesterday', '2026-11-22T04:59:59.000Z'),
+            {...event('Hackathon', '2026-11-22T18:00:00.000Z'), hackathon_id: 'hack'},
+            {...event('Draft', '2026-11-22T18:00:00.000Z'), status: 'draft'},
+            {...event('Cancelled', '2026-11-22T18:00:00.000Z'), status: 'cancelled'}];
         await jobs[0].callback();
         assert.deepEqual(messages.map(m => m.embeds[0].title), ['Midnight', 'Evening']);
         assert.match(messages[0].content, /<@&1543101259551342622>/);

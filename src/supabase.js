@@ -7,6 +7,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANO
 export async function getReminderEvents(kind, now = new Date()) {
     const { start, end } = getReminderWindow(kind, now);
     const { data, error } = await supabase.from('events').select('*')
+        .eq('status', 'published').is('hackathon_id', null)
         .gte('start_time', start).lt('start_time', end)
         .order('start_time', { ascending: true });
     if (error) throw error;
