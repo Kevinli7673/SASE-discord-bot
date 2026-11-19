@@ -4,11 +4,21 @@ A Discord bot for the SASE community. This repository contains the bot source co
 
 ## Features
 
+- Daily event reminders at 9 a.m. America/New_York, covering that calendar day.
+- Sunday roundups at 9 a.m. America/New_York, covering the upcoming Monday through Sunday.
+- Empty days/weeks produce no announcement. Daily posts mention the existing reminder role; weekly posts mention everyone once.
+- Events are listed chronologically. Both schedules adjust for daylight saving time and no longer use the `events.reminded` flag.
+- The bot must be running at the scheduled time; missed reminders are not replayed automatically.
+
 - Responds to Discord slash commands and events
 - Keeps configuration in environment variables
 - Designed for local development and hosted deployment
 
 ## Requirements
+
+### Local reminder tests
+
+Run `npm test` on Node.js 22.3+ (module mocks require the experimental flag included in the script). Tests use fake Supabase data and a fake Discord channel with the real reminder scheduler callbacks and embed builder. They do not log in, send Discord messages, or access the database. Coverage includes daily/weekly boundaries, daylight saving changes, event ordering, mentions, empty results, and provider failures.
 
 - Node.js 20 or later
 - A Discord application and bot token

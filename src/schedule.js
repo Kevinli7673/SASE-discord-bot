@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import remindEvent, {markReminded, getWeeklyEvents} from "./supabase.js";
+import { getReminderEvents } from './supabase.js';
+import { TIME_ZONE } from './reminder-windows.js';
 import { EmbedBuilder } from 'discord.js';
 import cron from 'node-cron';
 
@@ -12,7 +13,7 @@ function buildEventEmbed(event) {
         .setTitle(event.title)
         .setDescription(event.description ?? '')
         .addFields(
-            { name: 'Date', value: new Date(event.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), inline: true },
+            { name: 'Date', value: new Date(event.start_time).toLocaleDateString('en-US', { timeZone: TIME_ZONE, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), inline: true },
             { name: 'Location', value: event.location ?? 'TBD', inline: true },
             { name: '\u200b', value: '\u200b', inline: true },
             { name: 'Start', value: `<t:${unix}:t>`, inline: true },
@@ -22,21 +23,25 @@ function buildEventEmbed(event) {
 }
 
 export default function startSchedule(Client) {
-    cron.schedule('*/15 * * * *', async () => {
-        let events = await remindEvent();
-        const channel = await Client.channels.fetch(process.env.CHANNEL_ID);
-        for (const event of events) {
-            await channel.send({content: '@everyone', embeds: [buildEventEmbed(event)]});
-            await markReminded(event.id);
+    async function sendReminder(kind) {
+        try {
+            const events = await getReminderEvents(kind);
+            if (!events.length) return;
+            const channel = await Client.channels.fetch(process.env.CHANNEL_ID);
+            const heading = kind === 'weekly'
+                ? '@everyone Check out what\'s happening next week!'
+                : '<@&1543101259551342622> Here\'s what\'s happening today!';
+            for (const [index, event] of events.entries()) {
+                await channel.send({
+                    ...(index === 0 ? { content: heading } : {}),
+                    embeds: [buildEventEmbed(event)],
+                });
+            }
+        } catch (error) {
+            console.error(`Failed to send ${kind} reminder:`, error);
         }
-    });
-
-    cron.schedule('0 9 * * 1', async () => {
-        let events = await getWeeklyEvents();
-        const channel = await Client.channels.fetch(process.env.CHANNEL_ID);
-        await channel.send('@everyone Check out what\'s happening this week!');
-        for (const event of events) {
-            await channel.send({embeds: [buildEventEmbed(event)]});
-        }
-    });
+    }
+    const options = { timezone: TIME_ZONE, noOverlap: true };
+    cron.schedule('0 9 * * *', () => sendReminder('daily'), options);
+    cron.schedule('0 9 * * 0', () => sendReminder('weekly'), options);
 };
