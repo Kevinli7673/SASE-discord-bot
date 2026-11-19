@@ -119,6 +119,7 @@ Before enabling, apply the website migration `database/changes/add-hackathon-rem
 - `SUPABASE_SERVICE_ROLE_KEY`: server-only Supabase service key, required for protected claim/completion RPCs. Never expose this to browser code.
 - `HACKATHON_REMINDERS_ENABLED=true`: enable the worker only after migration and destination setup. Omitted/false keeps it disabled.
 - Existing `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `DISCORD_TOKEN`, and `CHANNEL_ID` remain in use.
+- `ROLE_ID`: the chapter role mentioned by daily digests. Missing or invalid values skip the daily send with a logged error; weekly digests still mention everyone. Hackathon roles are configured separately through Manage Hackathons.
 - Optional `SASE_WEBSITE_URL`: the deployed public HTTPS website origin. Once the companion website update is deployed, set this to enable linked event titles and “View event details” in hackathon reminders. Leave unset to omit links during local testing.
 
 Hackathon reminders use a SASE blue embed with the SASE logo, event description, Date / Location and Start / End rows, and a branded footer. The message heading includes a relative countdown and mentions only the configured hackathon role. Discord dates and times render in each viewer's local timezone. Website RSVP metadata is omitted from the description, and long text is capped to fit Discord embed limits. Delivery tracking and retry behavior are unchanged.

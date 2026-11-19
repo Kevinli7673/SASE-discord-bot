@@ -28,10 +28,14 @@ export default function startSchedule(Client) {
         try {
             const events = await getReminderEvents(kind);
             if (!events.length) return;
+            const roleId = process.env.ROLE_ID;
+            if (kind === 'daily' && !/^[0-9]{17,20}$/.test(roleId ?? '')) {
+                throw new Error('Daily reminders require a valid ROLE_ID');
+            }
             const channel = await Client.channels.fetch(process.env.CHANNEL_ID);
             const heading = kind === 'weekly'
                 ? '@everyone Check out what\'s happening next week!'
-                : '<@&1543101259551342622> Here\'s what\'s happening today!';
+                : `<@&${roleId}> Here's what's happening today!`;
             for (const [index, event] of events.entries()) {
                 await channel.send({
                     ...(index === 0 ? { content: heading } : {}),

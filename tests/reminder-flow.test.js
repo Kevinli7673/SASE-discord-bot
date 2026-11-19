@@ -54,6 +54,7 @@ test('local reminder flow with fake database and Discord', async (t) => {
     const errors = [];
     t.mock.method(console, 'error', (...args) => errors.push(args));
     const reset = () => {
+        process.env.ROLE_ID = '123456789012345678';
         messages.length = 0; queries = []; rows = []; queryError = null;
         fetchCount = 0; sendError = false; errors.length = 0;
     };
@@ -72,11 +73,20 @@ test('local reminder flow with fake database and Discord', async (t) => {
             {...event('Cancelled', '2026-11-22T18:00:00.000Z'), status: 'cancelled'}];
         await jobs[0].callback();
         assert.deepEqual(messages.map(m => m.embeds[0].title), ['Midnight', 'Evening']);
-        assert.match(messages[0].content, /<@&1543101259551342622>/);
+        assert.match(messages[0].content, /<@&123456789012345678>/);
         assert.equal(messages[1].content, undefined);
         assert.match(messages[1].embeds[0].fields[0].value, /Sunday, November 22, 2026/);
         assert.equal(queries[0].table, 'events');
         assert.deepEqual(queries[0].order, { field: 'start_time', ascending: true });
+    });
+    await t.test('daily skips sending when its role configuration is missing or invalid', async () => {
+        for (const role of ['', 'invalid']) {
+            reset(); process.env.ROLE_ID = role;
+            rows = [event('Workshop', '2026-11-22T18:00:00.000Z')];
+            await jobs[0].callback();
+            assert.equal(fetchCount, 0); assert.equal(messages.length, 0);
+            assert.equal(errors.length, 1);
+        }
     });
     await t.test('Sunday roundup includes Monday through Sunday and pings everyone once', async () => {
         reset();
