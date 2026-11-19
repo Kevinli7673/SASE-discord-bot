@@ -5,16 +5,33 @@ import { EmbedBuilder } from 'discord.js';
 export function buildHackathonMessage(delivery) {
     const event = delivery.content_snapshot;
     const start = Math.floor(Date.parse(event.start_time) / 1000);
+    const end = Math.floor(Date.parse(event.end_time) / 1000);
+    // Keep the website's RSVP metadata out of the visible description.
+    const description = event.description?.split('\n\n===EXTERNAL_URL===')[0];
+    const embed = new EmbedBuilder().setColor(0x89ABE3)
+        .setTitle(event.title.slice(0, 256))
+        .setThumbnail('https://raw.githubusercontent.com/saseucf/saseweb/main/public/logo-hero.png')
+        .setDescription((description || 'Join us for this session.').slice(0, 3500))
+        .addFields(
+            { name: 'Date', value: `<t:${start}:D>`, inline: true },
+            { name: 'Location', value: (event.location || 'TBD').slice(0, 1024), inline: true },
+            { name: '\u200b', value: '\u200b', inline: true },
+            { name: 'Start', value: `<t:${start}:t>`, inline: true },
+            { name: 'End', value: Number.isFinite(end) ? `<t:${end}:t>` : 'TBD', inline: true },
+            { name: '\u200b', value: '\u200b', inline: true },
+        )
+        .setFooter({ text: 'UCF SASE · Hackathon sessions' });
+    // Enable links after the matching website routes are deployed.
+    if (process.env.SASE_WEBSITE_URL && /^[0-9a-f-]{36}$/i.test(delivery.event_id ?? '')) {
+        const base = new URL(process.env.SASE_WEBSITE_URL);
+        if (base.protocol !== 'https:' || base.username || base.password) throw new Error('SASE_WEBSITE_URL must be a public HTTPS URL');
+        const url = new URL(`/events/${delivery.event_id}`, base).href;
+        embed.setURL(url).addFields({ name: '\u200b', value: `[View event details →](${url})` });
+    }
     return {
-        content: `Upcoming session — starts <t:${start}:R>\n<@&${delivery.role_id_snapshot}>`,
+        content: `# Hackathon Reminder\n<t:${start}:D>\n\n**Starting soon** · starts <t:${start}:R>\ncc: <@&${delivery.role_id_snapshot}>`,
         allowed_mentions: { parse: [], roles: [delivery.role_id_snapshot] },
-        embeds: [new EmbedBuilder().setColor(0x171C4A)
-            .setTitle(event.title.slice(0, 256))
-            .setDescription((event.description || 'Join us for this session.').slice(0, 4096))
-            .addFields(
-                { name: 'Start', value: `<t:${start}:F>` },
-                { name: 'Location', value: (event.location || 'TBD').slice(0, 1024) },
-            ).toJSON()],
+        embeds: [embed.toJSON()],
     };
 }
 
